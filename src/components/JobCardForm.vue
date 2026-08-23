@@ -1,38 +1,174 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps({
   job: Object,
   services: Array,
+  technicians: Array,
+  bays: Array,
   runningTotal: Number
 })
 
+const emit = defineEmits(['submit-job'])
+
 const LABOUR_CHARGE = 20000
+const WHEEL_ALIGNMENT_CHARGE = 30000
+const WHEEL_BALANCING_CHARGE = 20000
+const touched = ref({
+  plate: false,
+  ownerName: false,
+  ownerContact: false,
+  engineOilPrice: false,
+  brakeFluidPrice: false,
+  oilFilterPrice: false
+})
 
-// Plate format: 3 letters, a space, 3 digits, 1 letter. e.g. UBK 123A
-const isPlateValid = computed(() => /^[A-Za-z]{3} \d{3}[A-Za-z]$/.test(props.job.plate))
+const isPlateValid = computed(() => /^[A-Z]{3}\s\d{3}[A-Z]$/.test(props.job.plate))
 
-// Owner name: alphabets only, at least 2 characters.
-const isOwnerValid = computed(() => /^[A-Za-z\s]{2,}$/.test(props.job.owner))
+const isOwnerNameValid = computed(() => /^[A-Za-z\s]{2,}$/.test(props.job.ownerName))
+const isOwnerContactValid = computed(() => /^\d{10}$/.test(props.job.ownerContact))
+const isEngineOilPriceValid = computed(() => {
+  const value = Number(props.job.engineOilPrice)
+  return value >= 79000 && value <= 200000
+})
+const isBrakeFluidPriceValid = computed(() => {
+  const value = Number(props.job.brakeFluidPrice)
+  return value >= 13000 && value <= 20000
+})
+const isOilFilterPriceValid = computed(() => {
+  const value = Number(props.job.oilFilterPrice)
+  return value >= 15000 && value <= 20000
+})
+
+const isWheelAlignmentSelected = computed(() => props.job.services.includes('Wheel Alignment'))
+const isWheelBalancingSelected = computed(() => props.job.services.includes('Wheel Balancing'))
+
+const isFormValid = computed(() => {
+  return (
+    isPlateValid.value &&
+    isOwnerNameValid.value &&
+    isOwnerContactValid.value &&
+    isEngineOilPriceValid.value &&
+    isBrakeFluidPriceValid.value &&
+    isOilFilterPriceValid.value &&
+    props.job.vehicleClass &&
+    props.job.services.length > 0 &&
+    props.job.technicians.length > 0 &&
+    props.job.bayId
+  )
+})
+
+const errorCount = computed(() => {
+  let count = 0
+  if (!isPlateValid.value) count += 1
+  if (!isOwnerNameValid.value) count += 1
+  if (!isOwnerContactValid.value) count += 1
+  if (!isEngineOilPriceValid.value) count += 1
+  if (!isBrakeFluidPriceValid.value) count += 1
+  if (!isOilFilterPriceValid.value) count += 1
+  return count
+})
+
+function submitJob() {
+  if (!isFormValid.value) return
+  emit('submit-job')
+}
+
+function setTouched(field) {
+  touched.value[field] = true
+}
+
+function toUpperCasePlate() {
+  props.job.plate = props.job.plate.toUpperCase()
+}
 </script>
 
 <template>
-  <form class="job-card-form" @submit.prevent>
+  <form class="job-card-form" @submit.prevent="submitJob">
     <h2>Job Card Form</h2>
 
     <div class="field">
       <label for="plate">Plate Number</label>
-      <input id="plate" type="text" v-model="job.plate" placeholder="UBK 123A" />
-      <p v-if="job.plate && !isPlateValid" class="error">
-        Format: 3 letters, space, 3 digits, 1 letter (e.g. UBK 123A)
+      <input
+        id="plate"
+        type="text"
+        v-model="job.plate"
+        placeholder="UBK 123A"
+        @blur="setTouched('plate')"
+        @input="toUpperCasePlate"
+      />
+      <p v-if="touched.plate && !isPlateValid" class="error">
+        Format: 3 letters, space, 3 digits, 1 letter (example UBK 123A)
       </p>
     </div>
 
     <div class="field">
-      <label for="owner">Owner Name</label>
-      <input id="owner" type="text" v-model="job.owner" placeholder="Mukasa James" />
-      <p v-if="job.owner && !isOwnerValid" class="error">
+      <label for="ownerName">Owner Name</label>
+      <input
+        id="ownerName"
+        type="text"
+        v-model="job.ownerName"
+        placeholder="Mukasa James"
+        @blur="setTouched('ownerName')"
+      />
+      <p v-if="touched.ownerName && !isOwnerNameValid" class="error">
         Owner name must be alphabets only, at least 2 characters
+      </p>
+    </div>
+
+    <div class="field">
+      <label for="ownerContact">Owner Contact</label>
+      <input
+        id="ownerContact"
+        type="text"
+        v-model="job.ownerContact"
+        placeholder="0772123456"
+        @blur="setTouched('ownerContact')"
+      />
+      <p v-if="touched.ownerContact && !isOwnerContactValid" class="error">
+        Contact must be exactly 10 digits
+      </p>
+    </div>
+
+    <div class="field">
+      <label for="engineOilPrice">Engine Oil Price</label>
+      <input
+        id="engineOilPrice"
+        type="number"
+        v-model.number="job.engineOilPrice"
+        placeholder="79000 to 200000"
+        @blur="setTouched('engineOilPrice')"
+      />
+      <p v-if="touched.engineOilPrice && !isEngineOilPriceValid" class="error">
+        Engine oil price must be between 79,000 and 200,000
+      </p>
+    </div>
+
+    <div class="field">
+      <label for="brakeFluidPrice">Brake Fluid Price</label>
+      <input
+        id="brakeFluidPrice"
+        type="number"
+        v-model.number="job.brakeFluidPrice"
+        placeholder="13000 to 20000"
+        @blur="setTouched('brakeFluidPrice')"
+      />
+      <p v-if="touched.brakeFluidPrice && !isBrakeFluidPriceValid" class="error">
+        Brake fluid price must be between 13,000 and 20,000
+      </p>
+    </div>
+
+    <div class="field">
+      <label for="oilFilterPrice">Oil Filter Price</label>
+      <input
+        id="oilFilterPrice"
+        type="number"
+        v-model.number="job.oilFilterPrice"
+        placeholder="15000 to 20000"
+        @blur="setTouched('oilFilterPrice')"
+      />
+      <p v-if="touched.oilFilterPrice && !isOilFilterPriceValid" class="error">
+        Oil filter price must be between 15,000 and 20,000
       </p>
     </div>
 
@@ -57,12 +193,55 @@ const isOwnerValid = computed(() => /^[A-Za-z\s]{2,}$/.test(props.job.owner))
       </div>
     </div>
 
+    <div class="field" v-if="isWheelAlignmentSelected">
+      <label for="wheelAlignmentCharge">Wheel Alignment Charge</label>
+      <input
+        id="wheelAlignmentCharge"
+        type="text"
+        :value="WHEEL_ALIGNMENT_CHARGE.toLocaleString()"
+        readonly
+      />
+    </div>
+
+    <div class="field" v-if="isWheelBalancingSelected">
+      <label for="wheelBalancingCharge">Wheel Balancing Charge</label>
+      <input
+        id="wheelBalancingCharge"
+        type="text"
+        :value="WHEEL_BALANCING_CHARGE.toLocaleString()"
+        readonly
+      />
+    </div>
+
+    <div class="field">
+      <label>Technicians</label>
+      <div v-for="technician in technicians" :key="technician" class="checkbox-row">
+        <label>
+          <input type="checkbox" :value="technician" v-model="job.technicians" />
+          {{ technician }}
+        </label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="bay">Assign Bay (Free only)</label>
+      <select id="bay" v-model="job.bayId">
+        <option value="" disabled>Select free bay</option>
+        <option v-for="bay in bays" :key="bay.id" :value="bay.id">
+          {{ bay.id }}
+        </option>
+      </select>
+    </div>
+
     <div class="field">
       <label for="labour">Labour Charge</label>
-      <input id="labour" type="text" :value="LABOUR_CHARGE.toLocaleString()" disabled />
+      <input id="labour" type="text" :value="LABOUR_CHARGE.toLocaleString()" readonly />
     </div>
 
     <p class="running-total">Running Total: UGX {{ runningTotal.toLocaleString() }}</p>
+    <p class="error-count">{{ errorCount }} errors remaining</p>
+
+    <button type="submit" :disabled="!isFormValid">Save Job Card</button>
   </form>
 </template>
 
@@ -90,6 +269,7 @@ label {
 }
 
 input[type='text'],
+input[type='number'],
 select {
   width: 100%;
   padding: 8px;
@@ -98,7 +278,7 @@ select {
   border-radius: 6px;
 }
 
-input[disabled] {
+input[readonly] {
   background: #f4f3ec;
   color: #6b6375;
 }
@@ -120,5 +300,28 @@ input[disabled] {
   font-size: 18px;
   font-weight: 600;
   margin-top: 16px;
+}
+
+.error-count {
+  color: #c0392b;
+  font-weight: 600;
+}
+
+button {
+  background: #2f2544;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #201631;
+}
+
+button:disabled {
+  background: #998fb0;
+  cursor: not-allowed;
 }
 </style>

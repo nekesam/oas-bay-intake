@@ -13,6 +13,10 @@ const servicesDisplay = computed(() =>
   props.job.services.length ? props.job.services.join(', ') : 'None selected'
 )
 
+const techniciansDisplay = computed(() =>
+  props.job.technicians.length ? props.job.technicians.join(', ') : 'None selected'
+)
+
 const partsDisplay = computed(() => {
   if (!props.job.parts.length) return 'None selected'
 
@@ -33,15 +37,27 @@ const partsDisplay = computed(() => {
 
     <div class="row">
       <span>Plate:</span>
-      <span>{{ job.plate || '—' }}</span>
+      <span>{{ job.plate || '-' }}</span>
     </div>
     <div class="row">
       <span>Owner:</span>
-      <span>{{ job.owner || '—' }}</span>
+      <span>{{ job.ownerName || '-' }}</span>
+    </div>
+    <div class="row">
+      <span>Contact:</span>
+      <span>{{ job.ownerContact || '-' }}</span>
     </div>
     <div class="row">
       <span>Class:</span>
-      <span>{{ job.vehicleClass || '—' }}</span>
+      <span>{{ job.vehicleClass || '-' }}</span>
+    </div>
+    <div class="row">
+      <span>Technicians:</span>
+      <span>{{ techniciansDisplay }}</span>
+    </div>
+    <div class="row">
+      <span>Bay:</span>
+      <span>{{ job.bayId || '-' }}</span>
     </div>
     <div class="row">
       <span>Services:</span>
