@@ -1,5 +1,9 @@
 <script setup>
-import { bays } from '../data/workshopStore'
+import { storeToRefs } from 'pinia'
+import { useJobStore } from '../stores/jobs'
+
+const jobStore = useJobStore()
+const { bays } = storeToRefs(jobStore)
 </script>
 
 <template>
@@ -7,7 +11,12 @@ import { bays } from '../data/workshopStore'
     <h1>Bay Status</h1>
 
     <div class="bay-list">
-      <article v-for="bay in bays" :key="bay.id" class="bay-card" :class="bay.status.toLowerCase()">
+      <article
+        v-for="bay in bays"
+        :key="bay.id"
+        class="bay-card"
+        :class="bay.status.toLowerCase()"
+      >
         <h2>{{ bay.id }}</h2>
         <p>Status: {{ bay.status }}</p>
         <p v-if="bay.currentPlate">Current Plate: {{ bay.currentPlate }}</p>

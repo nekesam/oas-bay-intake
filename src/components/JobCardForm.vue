@@ -1,5 +1,11 @@
 <script setup>
 import { computed, ref } from 'vue'
+import {
+  LABOUR_CHARGE,
+  WHEEL_ALIGNMENT_CHARGE,
+  WHEEL_BALANCING_CHARGE,
+  vehicleClasses
+} from '../data/workshop'
 
 const props = defineProps({
   job: Object,
@@ -11,9 +17,6 @@ const props = defineProps({
 
 const emit = defineEmits(['submit-job'])
 
-const LABOUR_CHARGE = 20000
-const WHEEL_ALIGNMENT_CHARGE = 30000
-const WHEEL_BALANCING_CHARGE = 20000
 const touched = ref({
   plate: false,
   ownerName: false,
@@ -24,9 +27,9 @@ const touched = ref({
 })
 
 const isPlateValid = computed(() => /^[A-Z]{3}\s\d{3}[A-Z]$/.test(props.job.plate))
-
-const isOwnerNameValid = computed(() => /^[A-Za-z\s]{2,}$/.test(props.job.ownerName))
+const isOwnerNameValid = computed(() => /^[A-Za-z\s]{2,}$/.test(props.job.ownerName.trim()))
 const isOwnerContactValid = computed(() => /^\d{10}$/.test(props.job.ownerContact))
+
 const isEngineOilPriceValid = computed(() => {
   const value = Number(props.job.engineOilPrice)
   return value >= 79000 && value <= 200000
@@ -43,43 +46,48 @@ const isOilFilterPriceValid = computed(() => {
 const isWheelAlignmentSelected = computed(() => props.job.services.includes('Wheel Alignment'))
 const isWheelBalancingSelected = computed(() => props.job.services.includes('Wheel Balancing'))
 
-const isFormValid = computed(() => {
-  return (
-    isPlateValid.value &&
-    isOwnerNameValid.value &&
-    isOwnerContactValid.value &&
-    isEngineOilPriceValid.value &&
-    isBrakeFluidPriceValid.value &&
-    isOilFilterPriceValid.value &&
-    props.job.vehicleClass &&
-    props.job.services.length > 0 &&
-    props.job.technicians.length > 0 &&
-    props.job.bayId
-  )
-})
+const isFormValid = computed(() =>
+  isPlateValid.value &&
+  isOwnerNameValid.value &&
+  isOwnerContactValid.value &&
+  isEngineOilPriceValid.value &&
+  isBrakeFluidPriceValid.value &&
+  isOilFilterPriceValid.value &&
+  Boolean(props.job.vehicleClass) &&
+  props.job.services.length > 0 &&
+  props.job.technicians.length > 0 &&
+  Boolean(props.job.bayId)
+)
 
 const errorCount = computed(() => {
-  let count = 0
-  if (!isPlateValid.value) count += 1
-  if (!isOwnerNameValid.value) count += 1
-  if (!isOwnerContactValid.value) count += 1
-  if (!isEngineOilPriceValid.value) count += 1
-  if (!isBrakeFluidPriceValid.value) count += 1
-  if (!isOilFilterPriceValid.value) count += 1
-  return count
+  const checks = [
+    isPlateValid.value,
+    isOwnerNameValid.value,
+    isOwnerContactValid.value,
+    isEngineOilPriceValid.value,
+    isBrakeFluidPriceValid.value,
+    isOilFilterPriceValid.value,
+    Boolean(props.job.vehicleClass),
+    props.job.services.length > 0,
+    props.job.technicians.length > 0,
+    Boolean(props.job.bayId)
+  ]
+  return checks.filter((valid) => !valid).length
 })
-
-function submitJob() {
-  if (!isFormValid.value) return
-  emit('submit-job')
-}
 
 function setTouched(field) {
   touched.value[field] = true
 }
 
-function toUpperCasePlate() {
+function normalisePlate() {
   props.job.plate = props.job.plate.toUpperCase()
+}
+
+function submitJob() {
+  if (!isFormValid.value) {
+    return
+  }
+  emit('submit-job')
 }
 </script>
 
@@ -95,7 +103,7 @@ function toUpperCasePlate() {
         v-model="job.plate"
         placeholder="UBK 123A"
         @blur="setTouched('plate')"
-        @input="toUpperCasePlate"
+        @input="normalisePlate"
       />
       <p v-if="touched.plate && !isPlateValid" class="error">
         Format: 3 letters, space, 3 digits, 1 letter (example UBK 123A)
@@ -112,7 +120,7 @@ function toUpperCasePlate() {
         @blur="setTouched('ownerName')"
       />
       <p v-if="touched.ownerName && !isOwnerNameValid" class="error">
-        Owner name must be alphabets only, at least 2 characters
+        Owner name must be letters and spaces only, at least 2 characters
       </p>
     </div>
 
@@ -176,9 +184,9 @@ function toUpperCasePlate() {
       <label for="vehicleClass">Vehicle Class</label>
       <select id="vehicleClass" v-model="job.vehicleClass">
         <option value="" disabled>Select class</option>
-        <option value="Heavy">Heavy</option>
-        <option value="Small">Small</option>
-        <option value="Commercial">Commercial</option>
+        <option v-for="option in vehicleClasses" :key="option" :value="option">
+          {{ option }}
+        </option>
       </select>
     </div>
 

@@ -1,13 +1,15 @@
 <script setup>
 import { RouterLink } from 'vue-router'
-import { jobs } from '../data/workshopStore'
+import { useJobStore } from '../stores/jobs'
+
+const jobStore = useJobStore()
 </script>
 
 <template>
   <section>
     <h1>Reports</h1>
 
-    <p v-if="jobs.length === 0">No jobs submitted yet.</p>
+    <p v-if="jobStore.jobs.length === 0">No jobs submitted yet.</p>
 
     <table v-else>
       <thead>
@@ -20,13 +22,13 @@ import { jobs } from '../data/workshopStore'
         </tr>
       </thead>
       <tbody>
-        <tr v-for="item in jobs" :key="item.plate + item.ownerContact">
-          <td>{{ item.plate }}</td>
-          <td>{{ item.ownerName }}</td>
-          <td>{{ item.bayId }}</td>
-          <td>UGX {{ item.total.toLocaleString() }}</td>
+        <tr v-for="job in jobStore.jobs" :key="job.id">
+          <td>{{ job.plate }}</td>
+          <td>{{ job.ownerName }}</td>
+          <td>{{ job.bayId }}</td>
+          <td>UGX {{ job.total.toLocaleString() }}</td>
           <td>
-            <RouterLink :to="`/job/${item.plate}`">View</RouterLink>
+            <RouterLink :to="`/job/${job.plate}`">View</RouterLink>
           </td>
         </tr>
       </tbody>

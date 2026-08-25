@@ -1,23 +1,38 @@
 <script setup>
-import { reactive, computed } from 'vue'
+import { reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import JobCardForm from '../components/JobCardForm.vue'
 import PartCard from '../components/PartCard.vue'
 import ConfirmationCard from '../components/ConfirmationCard.vue'
-import {
-  LABOUR_CHARGE,
-  services,
-  technicians,
-  bays,
-  partsCatalogue,
-  jobs,
-  createEmptyJob
-} from '../data/workshopStore'
+import { usePartsStore } from '../stores/parts'
+import { useJobStore } from '../stores/jobs'
+import { LABOUR_CHARGE, services, technicians } from '../data/workshop'
 
 const router = useRouter()
-const job = reactive(createEmptyJob())
+const partsStore = usePartsStore()
+const jobStore = useJobStore()
 
-const freeBays = computed(() => bays.filter((bay) => bay.status === 'Free'))
+const { parts, loading, error: partsError } = storeToRefs(partsStore)
+const { freeBays, saving, error: saveError } = storeToRefs(jobStore)
+
+function createEmptyJob() {
+  return {
+    plate: '',
+    ownerName: '',
+    ownerContact: '',
+    engineOilPrice: '',
+    brakeFluidPrice: '',
+    oilFilterPrice: '',
+    vehicleClass: '',
+    services: [],
+    technicians: [],
+    bayId: '',
+    parts: []
+  }
+}
+
+const job = reactive(createEmptyJob())
 
 const servicesTotal = computed(() =>
   job.services.reduce((sum, name) => {
@@ -26,19 +41,22 @@ const servicesTotal = computed(() =>
   }, 0)
 )
 
-const partsTotal = computed(() => job.parts.reduce((sum, part) => sum + part.unitPrice, 0))
+const partsTotal = computed(() =>
+  job.parts.reduce((sum, part) => sum + part.unitPrice, 0)
+)
 
 const runningTotal = computed(() => LABOUR_CHARGE + servicesTotal.value + partsTotal.value)
 
 function issuePart(part) {
-  if (part.qtyInStock > 0) {
-    part.qtyInStock -= 1
-    job.parts.push({ name: part.name, unitPrice: part.unitPrice })
+  if (part.qtyInStock <= 0) {
+    return
   }
+  partsStore.issuePart(part.id)
+  job.parts.push({ id: part.id, name: part.name, unitPrice: part.unitPrice })
 }
 
-function saveJob() {
-  const savedJob = {
+async function saveJob() {
+  const payload = {
     plate: job.plate.trim().toUpperCase(),
     ownerName: job.ownerName.trim(),
     ownerContact: job.ownerContact.trim(),
@@ -56,18 +74,20 @@ function saveJob() {
     total: runningTotal.value
   }
 
-  jobs.push(savedJob)
-
-  const selectedBay = bays.find((bay) => bay.id === savedJob.bayId)
-  if (selectedBay) {
-    selectedBay.status = 'Occupied'
-    selectedBay.currentPlate = savedJob.plate
+  const saved = await jobStore.openJob(payload)
+  if (!saved) {
+    return
   }
 
   Object.assign(job, createEmptyJob())
-
-  router.push(`/job/${savedJob.plate}`)
+  router.push(`/job/${saved.plate}`)
 }
+
+onMounted(() => {
+  if (partsStore.parts.length === 0) {
+    partsStore.fetchParts()
+  }
+})
 </script>
 
 <template>
@@ -83,16 +103,28 @@ function saveJob() {
       @submit-job="saveJob"
     />
 
+    <p v-if="saving" class="notice">Saving job card...</p>
+    <p v-if="saveError" class="notice error">{{ saveError }}</p>
+
     <section class="parts-catalogue">
       <h2>Parts Catalogue</h2>
-      <PartCard
-        v-for="part in partsCatalogue"
-        :key="part.name"
-        :name="part.name"
-        :unit-price="part.unitPrice"
-        :qty-in-stock="part.qtyInStock"
-        @issue="issuePart(part)"
-      />
+
+      <div v-if="loading" class="spinner" aria-label="Loading parts"></div>
+      <p v-else-if="partsError" class="notice error">
+        {{ partsError }}
+        <button type="button" @click="partsStore.fetchParts()">Retry</button>
+      </p>
+      <template v-else>
+        <PartCard
+          v-for="part in parts"
+          :key="part.id"
+          :id="part.id"
+          :name="part.name"
+          :unit-price="part.unitPrice"
+          :qty-in-stock="part.qtyInStock"
+          @issue="issuePart(part)"
+        />
+      </template>
     </section>
 
     <ConfirmationCard
@@ -118,5 +150,29 @@ h1 {
 .parts-catalogue h2 {
   font-size: 18px;
   margin-bottom: 10px;
+}
+
+.notice {
+  margin: 12px 0;
+  font-weight: 500;
+}
+
+.notice.error {
+  color: #c0392b;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #d6d2dd;
+  border-top-color: #2f2544;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

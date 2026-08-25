@@ -1,13 +1,13 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { jobs } from '../data/workshopStore'
+import { useJobStore } from '../stores/jobs'
 
 const route = useRoute()
+const jobStore = useJobStore()
 
 const plate = computed(() => String(route.params.plate || '').toUpperCase())
-
-const job = computed(() => jobs.find((item) => item.plate === plate.value))
+const job = computed(() => jobStore.findByPlate(plate.value))
 </script>
 
 <template>
@@ -24,6 +24,7 @@ const job = computed(() => jobs.find((item) => item.plate === plate.value))
       <p><strong>Technicians:</strong> {{ job.technicians.join(', ') }}</p>
       <p><strong>Bay:</strong> {{ job.bayId }}</p>
       <p><strong>Services:</strong> {{ job.services.join(', ') }}</p>
+      <p><strong>Status:</strong> {{ job.status }}</p>
       <p><strong>Labour:</strong> UGX {{ job.labour.toLocaleString() }}</p>
       <p><strong>Services Total:</strong> UGX {{ job.servicesTotal.toLocaleString() }}</p>
       <p><strong>Parts Total:</strong> UGX {{ job.partsTotal.toLocaleString() }}</p>

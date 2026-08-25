@@ -1,5 +1,6 @@
 <script setup>
-defineProps({
+const props = defineProps({
+  id: String,
   name: String,
   unitPrice: Number,
   qtyInStock: Number
@@ -8,7 +9,7 @@ defineProps({
 const emit = defineEmits(['issue'])
 
 function issuePart() {
-  emit('issue')
+  emit('issue', props.id)
 }
 </script>
 
