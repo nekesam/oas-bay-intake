@@ -1,8 +1,12 @@
-# OAS Bay Job Card Intake
+# OAS Bay Records Management System
 
 ### Name: Martha Nekesa
 
-Week 1 Assignment — Vue 3 + Vite job card intake page for Oyera Auto Service Bay Ltd.
+Vue 3 records management app for Oyera Auto Service Bay Ltd. Built on the Week 1 job card
+intake page and extended for the final assessment with routing, Pinia state, a mock API,
+role based access, and a manager dashboard.
+
+Stack: Vue 3 (`<script setup>`), Vue Router 4, Pinia 4, Vite.
 
 ## How to run
 
@@ -13,21 +17,53 @@ npm run dev
 
 Open http://localhost:5173
 
-## Concepts used
+Build:
 
-- Vite project scaffolded and running
-- 3 Single File Components: `JobCardForm.vue`, `PartCard.vue`, `ConfirmationCard.vue` (plus `App.vue`)
-- `reactive()` for the job card and parts catalogue, `computed()` for the running total
-- `v-model` on plate number, owner name, vehicle class, and service checkboxes
-- `v-for` with `:key` over the services list and the parts catalogue
-- `v-if` / `v-else` for "Issue to Job" vs "Out of Stock"
-- Props passed from `App.vue` down to `JobCardForm`, `PartCard`, and `ConfirmationCard`
-- `PartCard` emits `issue`, handled by the parent to reduce stock and update the total
-- `onMounted` in `App.vue` logs "OAS Bay Intake loaded" and loads the parts catalogue
-- Scoped CSS in `PartCard.vue` (and the other components)
-- Labour charge is a read-only, disabled input fixed at 20,000
-- Running total updates live via `{{ }}` interpolation
+```
+npm run build
+npm run preview
+```
 
-## Screenshot
+## Features
 
-![OAS Bay Job Card Intake running](.github/oas_bay_intake.jpeg)
+- Routing: `/intake`, `/bays`, `/parts`, `/reports`, `/job/:plate`, and a catch all 404 route.
+- Navigation bar with active link highlighting, links filtered by role.
+- Job card intake form with `v-model` binding, service and technician pickers, free bay
+  selection, read only labour and service charges, and a live running total.
+- Validation: plate regex, owner name, 10 digit contact, and price range checks for engine
+  oil, brake fluid, and oil filter. Errors show after a field is touched. Submit is disabled
+  until the form is valid and an error count is shown.
+- Parts catalogue with `PartCard`, issue to job with stock decrement, and a `v-show` restock
+  banner when a part reaches zero.
+- Pinia stores: `usePartsStore`, `useJobStore`, `useUserStore` with actions and getters.
+- Mock API (`src/api/mock.js`): `getParts` and `createJob` with network delay, loading
+  spinner, and an error state with retry.
+- Role based access: `beforeEach` guard, role switcher, nav links hidden per role.
+- Manager dashboard at `/reports`: Total Revenue, Labour Collected, Cars Serviced Today,
+  Low Stock Items, all from Pinia getters.
+
+## Roles
+
+Switch role with the dropdown in the top right.
+
+- Technician: sees Intake and Bays. Blocked from `/parts` and `/reports` by the router
+  guard, redirected to `/bays`.
+- Manager: sees Intake, Bays, Parts, and Reports.
+
+Screenshots:
+
+- `.github/role-technician.png`
+- `.github/role-manager.png`
+- `.github/oas_bay_intake.jpeg`
+
+## Documents
+
+- `THEORY.md`: answers to the five theory questions.
+- `BUGS.md`: debugging journal.
+- `mydocs.md` (in the assessment folder): full end to end documentation.
+
+## Testing the API error state
+
+Set `localStorage.setItem('oasApiFail', '1')` in the browser console and reload to see the
+loading spinner followed by the error message and retry button. Remove the key to restore
+normal responses.
