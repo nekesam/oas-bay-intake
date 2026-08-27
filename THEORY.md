@@ -1,20 +1,18 @@
 # OAS Bay Theory Answers
 
-## Question 1
+All references point to files and identifiers in this repository.
 
-### a) Why the template does not update in the broken counter
-Files used: [src/views/IntakeView.vue](src/views/IntakeView.vue), [src/components/JobCardForm.vue](src/components/JobCardForm.vue)
+## Question 1: Reactivity
 
-Relevant variables and APIs from my project: job, touched, isFormValid, runningTotal, ref, reactive, computed
+### a. Why the template does not update
 
-In Vue, plain variables are not reactive. In the broken example, count is just a normal let value, so Vue does not track changes. In my project, values update only because they are reactive, for example job is created with reactive in [src/views/IntakeView.vue](src/views/IntakeView.vue), and touched is created with ref in [src/components/JobCardForm.vue](src/components/JobCardForm.vue).
+`let count = 0` is a plain JavaScript variable. Vue only re-renders when a value it tracks changes. A plain `let` is not tracked, so `count++` mutates the number but never tells Vue to re-render.
 
-### b) Correct rewrite using Vue 3 Composition API
-Files used: [src/components/JobCardForm.vue](src/components/JobCardForm.vue)
+In this project the equivalent working values are wrapped in reactive APIs. In `src/views/IntakeView.vue:35` the form model is `const job = reactive(createEmptyJob())`, and in `src/components/JobCardForm.vue:20` the touched map is `const touched = ref({ ... })`. Because these are reactive, `runningTotal` in `src/views/IntakeView.vue:48` and `errorCount` in `src/components/JobCardForm.vue:62` recompute and the DOM updates.
 
-Relevant APIs from my project: ref
+### b. Correct rewrite using the Composition API
 
-~~~vue
+```vue
 <script setup>
 import { ref } from 'vue'
 
@@ -28,157 +26,118 @@ function increment() {
 <template>
   <button @click="increment">Clicked {{ count }} times</button>
 </template>
-~~~
+```
 
-This matches how I already use ref for touched state in my form component.
+This is the same pattern used for `touched` in `src/components/JobCardForm.vue:20`, where the value is read and written through `.value` inside `setTouched`.
 
-### c) Difference between ref and reactive with OAS Bay examples
-Files used: [src/components/JobCardForm.vue](src/components/JobCardForm.vue), [src/views/IntakeView.vue](src/views/IntakeView.vue), [src/data/workshopStore.js](src/data/workshopStore.js)
+### c. Difference between ref and reactive
 
-Relevant variables: touched, job, bays, partsCatalogue, jobs
+`ref()` wraps any single value (primitive or object) and is accessed with `.value` in script. It can be reassigned wholesale.
 
-ref is better for a single value or one grouped object where I assign through .value. In my code, touched is a ref object in [src/components/JobCardForm.vue](src/components/JobCardForm.vue).
+`reactive()` wraps an object or array only, is accessed with normal property access, and loses reactivity if the whole binding is replaced or destructured.
 
-reactive is better for object or array state I mutate directly. In my code, job is reactive in [src/views/IntakeView.vue](src/views/IntakeView.vue), and bays, partsCatalogue, jobs are reactive arrays in [src/data/workshopStore.js](src/data/workshopStore.js).
+OAS Bay examples:
+- `ref` is the better choice for `loading` and `error` in `src/stores/parts.js:6`, because each is a single flag that gets replaced (`this.loading = true`).
+- `reactive` is the better choice for the `job` model in `src/views/IntakeView.vue:35`, because the form mutates many nested fields in place through `v-model` and `Object.assign(job, createEmptyJob())` resets it without breaking the binding.
 
-## Question 2
+## Question 2: Props vs Pinia
 
-### a) Props flow from App to PartCard with emit back up
-Files used: [src/App.vue](src/App.vue), [src/views/IntakeView.vue](src/views/IntakeView.vue), [src/components/PartCard.vue](src/components/PartCard.vue), [src/data/workshopStore.js](src/data/workshopStore.js)
+### a. Props flow from App to PartCard
 
-Relevant variables and functions: partsCatalogue, issuePart, defineProps, defineEmits, issue
-
-~~~mermaid
+```mermaid
 flowchart TD
-  A[App.vue RouterView] --> B[IntakeView.vue]
-  D[workshopStore partsCatalogue] --> B
-  B -- name, unitPrice, qtyInStock props --> C[PartCard.vue]
-  C -- emit issue --> B
-  B -- issuePart part --> D
-  D -- qtyInStock updates reactively --> C
-~~~
+  A[App.vue] --> B[IntakeView.vue]
+  P[usePartsStore.parts] --> B
+  B -- id, name, unitPrice, qtyInStock props --> C[PartCard.vue]
+  C -- emit issue with id --> B
+  B -- issuePart part --> P
+```
 
-This is exactly how my current parts issuing works.
+`src/views/IntakeView.vue:118` passes the four props into `PartCard`. `src/components/PartCard.vue:12` emits `issue` with the part id, handled by `issuePart` in `src/views/IntakeView.vue:50`.
 
-### b) Diagram of Pinia-style flow instead
-Files used: [src/main.js](src/main.js), [src/views/IntakeView.vue](src/views/IntakeView.vue)
+### b. Same components through a Pinia store
 
-Relevant evidence from my code: project currently has no Pinia registration and no stores folder
-
-~~~mermaid
+```mermaid
 flowchart TD
-  S[Pinia store usePartsStore] --> B[IntakeView.vue]
+  S[usePartsStore] --> B[IntakeView.vue]
   S --> C[PartCard.vue]
-  C -- call store action issuePart id --> S
-  S -- state updates --> B
-  S -- state updates --> C
-~~~
+  C -- partsStore.issuePart id --> S
+  S -- parts and getters update --> B
+  S -- parts and getters update --> C
+```
 
-My current code does not implement this yet. Right now I use shared reactive state in [src/data/workshopStore.js](src/data/workshopStore.js), not Pinia.
+`src/stores/parts.js` holds `parts`, the `lowStockParts` and `outOfStockParts` getters, and the `issuePart` action. `RestockBanner.vue` reads `outOfStockParts` directly from the store with no props at all.
 
-### c) When props are still useful even if Pinia exists
-Files used: [src/views/IntakeView.vue](src/views/IntakeView.vue), [src/components/PartCard.vue](src/components/PartCard.vue), [src/components/ConfirmationCard.vue](src/components/ConfirmationCard.vue)
+### c. When props are still the right choice
 
-Relevant props from my code: name, unitPrice, qtyInStock, job, labour, servicesTotal, partsTotal, total
+Props stay correct for a reusable presentational component that should not know about global state. `PartCard.vue` in this project takes `id, name, unitPrice, qtyInStock` as props (`src/components/PartCard.vue:2`). It renders one row and emits an event. Keeping it prop driven means it can be dropped into the intake page, a future parts admin page, or a test, without depending on `usePartsStore`. `ConfirmationCard.vue` is the same case: `src/views/IntakeView.vue` passes it the current job totals as props because they belong to that one screen.
 
-Even with Pinia, I would still use props for local parent-child data contracts. My own example is PartCard, where IntakeView passes name, unitPrice, qtyInStock to one card instance. Another example is ConfirmationCard where IntakeView passes totals and current job summary. These are clear UI inputs from the immediate parent.
+## Question 3: Business Logic
 
-## Question 3
+### a. Computed property for the engine oil price
 
-### a) Computed property for engine oil validation
-Files used: [src/components/JobCardForm.vue](src/components/JobCardForm.vue)
-
-Relevant variable names: job.engineOilPrice, isEngineOilPriceValid
-
-~~~js
+```js
 const isEngineOilPriceValid = computed(() => {
   const value = Number(props.job.engineOilPrice)
   return value >= 79000 && value <= 200000
 })
-~~~
+```
 
-This is already implemented in my form.
+This is `src/components/JobCardForm.vue:33`.
 
-### b) Where it is used and how submission is prevented
-Files used: [src/components/JobCardForm.vue](src/components/JobCardForm.vue)
+### b. Where it is used and how it blocks submission
 
-Relevant computed and functions: isEngineOilPriceValid, isFormValid, submitJob
+`isEngineOilPriceValid` is one term of `isFormValid` at `src/components/JobCardForm.vue:49`. The submit button is bound `:disabled="!isFormValid"` at `src/components/JobCardForm.vue:252`, and `submitJob` at `src/components/JobCardForm.vue:86` returns early when `isFormValid` is false, so the `submit-job` event never fires. A price of 50,000 keeps `isFormValid` false and the button stays disabled.
 
-isEngineOilPriceValid is included inside isFormValid. The submit button is disabled with :disabled bound to the inverse of isFormValid. Also submitJob returns early if isFormValid is false, so the emit does not run.
+### c. Should the backend also validate
 
-### c) Should backend also validate
-Files used: [src/components/JobCardForm.vue](src/components/JobCardForm.vue), [src/views/IntakeView.vue](src/views/IntakeView.vue)
+Yes. The frontend check is a user experience aid only. A user can call the API directly, disable JavaScript, or edit the request, so the browser is not a trust boundary. The same 79,000 to 200,000 rule must run server side in the `POST /api/jobs` handler before a job is stored. In this project that endpoint is mocked in `src/api/mock.js`, so the rule currently exists only client side.
 
-Relevant functions: submitJob, saveJob
+## Question 4: Routing and Guards
 
-Yes. Frontend validation improves user experience, but it is not a security boundary. A user can still bypass browser checks and send bad data directly. So backend should enforce the same range rule before accepting a saved job.
+### a. v-if on a RouterLink vs a beforeEach guard
 
-## Question 4
+`v-if="role === 'manager'"` on a `RouterLink` only removes the visible link. It is a user experience convenience.
 
-### a) RouterLink v-if by role vs beforeEach guard
-Files used: [src/App.vue](src/App.vue), [src/router/index.js](src/router/index.js)
+A `beforeEach` guard runs on every navigation and can block or redirect. It is the security measure, because it still applies when the user types the URL directly.
 
-Relevant route and UI pieces: RouterLink navigation, router routes
+In this project `src/App.vue:19` filters the nav links by role, and `src/router/index.js:25` enforces access.
 
-A RouterLink hidden with v-if is mainly UX. It just removes the visible link.
+### b. Guard that blocks a technician from /parts and /reports
 
-A beforeEach guard is route protection. It runs during navigation and can block or redirect.
-
-In my current code, nav links are always shown in [src/App.vue](src/App.vue), and there is no beforeEach guard in [src/router/index.js](src/router/index.js).
-
-### b) beforeEach guard to block Technician from /parts and /reports
-Files used: [src/router/index.js](src/router/index.js)
-
-Relevant routes in my project: /parts, /reports, /bays
-
-My current project does not have role state yet, so this is the simplest guard shape I would add in router using localStorage role:
-
-~~~js
+```js
 router.beforeEach((to) => {
-  const role = localStorage.getItem('role') || 'technician'
-  const blockedForTechnician = ['/parts', '/reports']
-
-  if (role === 'technician' && blockedForTechnician.includes(to.path)) {
+  const userStore = useUserStore()
+  const allowed = to.meta.roles
+  if (allowed && !allowed.includes(userStore.role)) {
     return '/bays'
   }
 })
-~~~
+```
 
-### c) Why hidden nav link alone is not enough
-Files used: [src/App.vue](src/App.vue), [src/router/index.js](src/router/index.js)
+This is `src/router/index.js:25`. `/parts` and `/reports` carry `meta: { roles: ['manager'] }` (`src/router/index.js:18` and `:19`), so a technician is redirected to `/bays`.
 
-Relevant behavior: direct URL navigation to routes in router table
+### c. How a technician still reaches /reports with only the link hidden
 
-If a student hides only the link, a technician can still type /reports in the address bar or paste it directly. Since my current router has no guard, that route still resolves.
+If only the nav link is removed and no guard exists, the route is still registered. The technician can type `/reports` in the address bar, use a bookmark, or refresh while on that URL, and the component renders. Hiding the link changes what is shown, not what is reachable.
 
-## Question 5
+## Question 5: Lifecycle and Async
 
-### a) What onMounted does and why top-level fetch is different
-Files used: [src/main.js](src/main.js), [src/views/PartsView.vue](src/views/PartsView.vue)
+### a. What onMounted does
 
-Relevant evidence from my project: current code has no onMounted and no fetch yet
+`onMounted` registers a callback that runs after the component is inserted into the DOM. Template refs and rendered elements are available at that point.
 
-onMounted runs after the component is mounted into the DOM. It is a good place for data fetching that drives rendered UI.
+Code at the top level of `<script setup>` runs during setup, before the first render. If a fetch there needs to read or update mounted DOM, or expects child components to exist, those are not ready yet. Data loading that only fills reactive state is fine either place, but `onMounted` is the predictable hook and is what `src/views/PartsView.vue:10` and `src/views/IntakeView.vue:86` use to call `partsStore.fetchParts()`.
 
-A top-level fetch inside script setup can still run, but it does not mean DOM is already mounted when the request starts. So if logic depends on mounted UI state, onMounted is the safer lifecycle hook.
+### b. What `const data = fetch('/api/parts')` without await contains
 
-### b) What happens with const data = fetch('/api/parts') without await
-Files used: [src/views/PartsView.vue](src/views/PartsView.vue)
+`data` holds a pending `Promise`. `fetch` is asynchronous and returns immediately. Without `await` or `.then`, the code has the promise object, not the `Response`, and certainly not the parsed JSON. Reading `data.json()` would fail because a promise has no `json` method.
 
-Relevant evidence from my project: no async fetch currently in this file
+### c. The three request states and how each is handled
 
-data holds a Promise, not the final JSON payload. fetch is asynchronous, so without await or then, you only get the pending Promise object.
+`src/stores/parts.js` models all three:
+- Loading: `fetchParts` sets `this.loading = true` before the call (`src/stores/parts.js:18`).
+- Success: `this.parts = await getParts()` fills state, then `finally` sets `loading` false.
+- Error: the `catch` block sets `this.error = error.message` and the request does not throw out of the store.
 
-### c) Loading, success, error request states and how handled in OAS Bay
-Files used: [src/views/PartsView.vue](src/views/PartsView.vue), [src/data/workshopStore.js](src/data/workshopStore.js)
-
-Relevant variables: partsCatalogue
-
-In my current code, parts view is in success-style display only because it reads partsCatalogue directly and renders the table. I have not yet implemented explicit loading and error states for network requests.
-
-If I extend my current parts view, I would add:
-- loading: show spinner while request is in progress
-- success: render table from parts data
-- error: show message instead of crashing the page
-
-Right now, only the success-style render exists in [src/views/PartsView.vue](src/views/PartsView.vue).
+`src/views/PartsView.vue` renders one of three branches: a spinner while `loading`, the error text plus a Retry button while `error` is set, otherwise the inventory table. `src/api/mock.js` rejects when `localStorage.getItem('oasApiFail')` is `'1'`, which is how the error branch is exercised.
