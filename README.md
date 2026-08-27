@@ -54,6 +54,10 @@ Switch role with the dropdown in the top right.
 
 ![Manager view](.github/role-manager.png)
 
+A saved job card at `/job/:plate`:
+
+![Job details](.github/job-details.png)
+
 ## Documents
 
 - `THEORY.md`: answers to the five theory questions.

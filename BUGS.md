@@ -5,74 +5,102 @@ in `.github/`.
 
 ---
 
-## Bug 1: Pinia import fails to resolve
+## Bug 1: Pinia store used before Pinia was installed on the app
 
 ### What broke
-Right after adding the first store, `npm run build` and the dev server both failed to start.
-The app would not compile at all.
+After moving the role check into the router, every route rendered a blank page. Nothing in
+the app mounted.
 
-Screenshot: `.github/bug1-pinia-unresolved.png`
+Screenshot: `.github/bug1-getactivepinia.png`
 
 ```
-error during build:
-Build failed with 1 error:
-
-Error: [vite]: Rolldown failed to resolve import "pinia" from "src/main.js".
-This is most likely unintended because it can break your application at runtime.
+Uncaught Error: [🍍]: "getActivePinia()" was called but there was no active Pinia.
+Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+    at index.js:10:19
 ```
 
 ### Where in my code
-`src/main.js:2` had `import { createPinia } from 'pinia'` and `src/stores/user.js:1` had
-`import { defineStore } from 'pinia'`, but `pinia` was never added to `package.json`.
+`src/router/index.js`. I called the store at module top level:
+
+```js
+import { useUserStore } from '../stores/user'
+
+const userStore = useUserStore()
+
+router.beforeEach((to) => {
+  const allowed = to.meta.roles
+  if (allowed && !allowed.includes(userStore.role)) return '/bays'
+})
+```
+
+`src/main.js` imports `./router` while evaluating the module graph, which runs before
+`createApp(App).use(createPinia())`. So `useUserStore()` ran with no active Pinia.
 
 ### What I tried first
-I changed the import to `import { createPinia } from 'vue'`, assuming Pinia shipped with
-Vue 3. That produced a new error, `"createPinia" is not exported by "vue"`.
+I moved `app.use(createPinia())` above `app.use(router)` in `src/main.js`. It made no
+difference, because the store call still ran at import time, before any `app.use`.
 
 ### The actual fix
+Call the store inside the guard, not at module scope:
+
+```js
+router.beforeEach((to) => {
+  const userStore = useUserStore()
+  const allowed = to.meta.roles
+  if (allowed && !allowed.includes(userStore.role)) {
+    return '/bays'
+  }
+})
 ```
-npm install pinia
-```
-Pinia is a separate package. Once installed, `package.json` lists it under `dependencies`
-and the import resolves.
+
+The guard runs during navigation, after `main.js` has called `app.use(createPinia())`.
 
 ### What I learned
-A new import only works if its package is installed. Add the dependency before writing the
-import, and check `package.json`.
+A `useStore()` call must run after `app.use(createPinia())`. Inside components and guards
+that is automatic; at module top level it is not, so keep store calls inside functions.
 
 ---
 
 ## Bug 2: Stale import after splitting the data module
 
 ### What broke
-`npm run build` failed after I renamed `src/data/workshopStore.js` to `src/data/workshop.js`
-and moved the parts list into `usePartsStore`.
+The whole app went blank after I renamed `src/data/workshopStore.js` to
+`src/data/workshop.js` and moved the parts list into `usePartsStore`.
 
 Screenshot: `.github/bug2-missing-export.png`
 
 ```
-[MISSING_EXPORT] "partsCatalogue" is not exported by "src/data/workshop.js".
-    ╭─[ src/views/PartsView.vue:17:31 ]
-    │
- 17 │ import { LOW_STOCK_THRESHOLD, partsCatalogue } from '../data/workshop'
-    │                               ───────┬──────
-    │                                      ╰──────── Missing export
+Uncaught SyntaxError: The requested module '/src/data/workshop.js'
+does not provide an export named 'partsCatalogue' (at PartsView.vue:5:31)
 ```
 
 ### Where in my code
-`src/views/PartsView.vue` still imported `partsCatalogue` from `../data/workshop`, but that
-export no longer existed after the parts data moved into the store.
+`src/views/PartsView.vue` still had:
+
+```js
+import { LOW_STOCK_THRESHOLD, partsCatalogue } from '../data/workshop'
+```
+
+`partsCatalogue` no longer exists as an export; the parts data now lives in the store.
+Because `src/router/index.js` imports every view eagerly, one broken view import blanks the
+entire app, not just `/parts`.
 
 ### What I tried first
-I added a `partsCatalogue` export back to `workshop.js`. The build passed, but the inventory
-page then showed a fixed copy of the data that never changed when stock was issued.
+I added a `partsCatalogue` export back to `workshop.js`. The page loaded, but the inventory
+table showed a fixed copy of the data that never changed when stock was issued.
 
 ### The actual fix
 Read the store instead of the old module:
+
 ```js
+import { storeToRefs } from 'pinia'
+import { usePartsStore } from '../stores/parts'
+
 const partsStore = usePartsStore()
 const { parts } = storeToRefs(partsStore)
 ```
+
 Now the page and the rest of the app share one source of truth.
 
 ### What I learned
@@ -84,8 +112,8 @@ only hides the split and creates a second, stale copy.
 ## Bug 3: Parts table empty after a successful fetch
 
 ### What broke
-On `/parts` the loading spinner cleared and the table rendered its headers with no rows. The
-network request returned four parts and there was no console error.
+On `/parts` the loading spinner cleared and the table rendered its header row with no data
+rows. The mock returned four parts and there was no console error.
 
 Screenshot: `.github/bug3-storerefs-empty.png`
 
@@ -97,10 +125,12 @@ rendered rows: 0
 ```
 
 ### Where in my code
-`src/views/PartsView.vue:8`:
+`src/views/PartsView.vue:7`:
+
 ```js
 const { parts, loading, error } = partsStore
 ```
+
 `parts` was captured as the initial empty array at setup time. When `fetchParts` later
 replaced `this.parts`, the template kept pointing at the old array.
 
@@ -115,6 +145,7 @@ import { storeToRefs } from 'pinia'
 const partsStore = usePartsStore()
 const { parts, loading, error } = storeToRefs(partsStore)
 ```
+
 `storeToRefs` returns refs bound to the store, so replacing `this.parts` updates the view.
 Actions are still called on `partsStore` directly.
 
