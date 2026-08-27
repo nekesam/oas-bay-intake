@@ -101,7 +101,7 @@ Yes. The frontend check is a user experience aid only. A user can call the API d
 
 A `beforeEach` guard runs on every navigation and can block or redirect. It is the security measure, because it still applies when the user types the URL directly.
 
-In this project `src/App.vue:19` filters the nav links by role, and `src/router/index.js:25` enforces access.
+In this project `src/App.vue:36` shows each nav link only when `userStore.canAccess(link.roles)` is true, and `src/router/index.js:25` enforces access.
 
 ### b. Guard that blocks a technician from /parts and /reports
 

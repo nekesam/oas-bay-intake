@@ -1,5 +1,5 @@
 <script setup>
-import { computed, watch } from 'vue'
+import { watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore, ROLES } from './stores/user'
@@ -15,10 +15,6 @@ const links = [
   { to: '/parts', label: 'Parts', roles: ['manager'] },
   { to: '/reports', label: 'Reports', roles: ['manager'] }
 ]
-
-const visibleLinks = computed(() =>
-  links.filter((link) => link.roles.includes(role.value))
-)
 
 function changeRole(event) {
   userStore.setRole(event.target.value)
@@ -36,9 +32,11 @@ watch(role, () => {
   <header class="top-nav">
     <h1>OAS Bay</h1>
     <nav>
-      <RouterLink v-for="link in visibleLinks" :key="link.to" :to="link.to">
-        {{ link.label }}
-      </RouterLink>
+      <template v-for="link in links" :key="link.to">
+        <RouterLink v-if="userStore.canAccess(link.roles)" :to="link.to">
+          {{ link.label }}
+        </RouterLink>
+      </template>
     </nav>
     <label class="role-switch">
       <span>Role</span>
