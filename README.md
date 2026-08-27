@@ -50,11 +50,9 @@ Switch role with the dropdown in the top right.
   guard, redirected to `/bays`.
 - Manager: sees Intake, Bays, Parts, and Reports.
 
-Screenshots:
+![Technician view](.github/role-technician.png)
 
-- `.github/role-technician.png`
-- `.github/role-manager.png`
-- `.github/oas_bay_intake.jpeg`
+![Manager view](.github/role-manager.png)
 
 ## Documents
 
