@@ -44,34 +44,19 @@ OAS Bay examples:
 
 ### a. Props flow from App to PartCard
 
-```mermaid
-flowchart TD
-  A[App.vue] --> B[IntakeView.vue]
-  P[usePartsStore.parts] --> B
-  B -- id, name, unitPrice, qtyInStock props --> C[PartCard.vue]
-  C -- emit issue with id --> B
-  B -- issuePart part --> P
-```
+![Props and Event Communication Flow](./public/props-flow.png)
 
 `src/views/IntakeView.vue:118` passes the four props into `PartCard`. `src/components/PartCard.vue:12` emits `issue` with the part id, handled by `issuePart` in `src/views/IntakeView.vue:50`.
 
 ### b. Same components through a Pinia store
 
-```mermaid
-flowchart TD
-  S[usePartsStore] --> B[IntakeView.vue]
-  S --> C[PartCard.vue]
-  C -- partsStore.issuePart id --> S
-  S -- parts and getters update --> B
-  S -- parts and getters update --> C
-```
+![Pinia State Management Flow](./public/pinia-flow.png)
 
 `src/stores/parts.js` holds `parts`, the `lowStockParts` and `outOfStockParts` getters, and the `issuePart` action. `RestockBanner.vue` reads `outOfStockParts` directly from the store with no props at all.
 
 ### c. When props are still the right choice
 
-Props stay correct for a reusable presentational component that should not know about global state. `PartCard.vue` in this project takes `id, name, unitPrice, qtyInStock` as props (`src/components/PartCard.vue:2`). It renders one row and emits an event. Keeping it prop driven means it can be dropped into the intake page, a future parts admin page, or a test, without depending on `usePartsStore`. `ConfirmationCard.vue` is the same case: `src/views/IntakeView.vue` passes it the current job totals as props because they belong to that one screen.
-
+Props stay correct for a reusable presentational component that should not know about global state. `PartCard.vue` in this project takes `id`, `name`, `unitPrice`, and `qtyInStock` as props (`src/components/PartCard.vue:2`). It renders one row and emits an event. Keeping it prop driven means it can be dropped into the intake page, a future parts admin page, or a test, without depending on `usePartsStore`. `ConfirmationCard.vue` is the same case: `src/views/IntakeView.vue` passes it the current job totals as props because they belong to that one screen.
 ## Question 3: Business Logic
 
 ### a. Computed property for the engine oil price
